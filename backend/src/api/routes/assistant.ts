@@ -41,44 +41,39 @@ router.post('/', async (req: Request, res: Response) => {
       content: message,
     });
 
+    let reply: string;
+    let source: string;
+
     // Check if Claude AI is enabled
     if (config.claude.enabled && config.claude.apiKey) {
       try {
         // TODO: Implement actual Claude API call when apiKey is configured
-        // For now, return intelligent fallback responses
-        const reply = generateIntelligentResponse(message, incidentId);
-        
-        // Add assistant response to history
-        conversationHistory.push({
-          role: 'assistant',
-          content: reply,
-        });
-
-        return res.json({ 
-          reply, 
-          source: 'claude',
-          incidentContext: incidentId 
-        });
+        reply = generateIntelligentResponse(message, incidentId);
+        source = 'claude';
       } catch (claudeError) {
-        logger.warn('Claude API error, falling back to rule-based responses:', claudeError);
+        logger.warn('Claude API error, using fallback:', claudeError);
+        reply = generateIntelligentResponse(message, incidentId);
+        source = 'fallback-claude';
       }
+    } else {
+      reply = generateIntelligentResponse(message, incidentId);
+      source = 'fallback';
     }
 
-    // Fallback: Rule-based intelligent responses
-    const reply = generateIntelligentResponse(message, incidentId);
+    // Add assistant response to history
     conversationHistory.push({
       role: 'assistant',
       content: reply,
     });
 
-    res.json({ 
+    return res.json({ 
       reply, 
-      source: 'fallback',
+      source,
       incidentContext: incidentId 
     });
   } catch (error) {
     logger.error('Assistant error:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Assistant error',
       reply: 'I encountered an error processing your request. Please try again.' 
     });

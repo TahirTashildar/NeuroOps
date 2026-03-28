@@ -86,13 +86,13 @@ router.get('/:id/health', async (req: Request, res: Response) => {
     }
     
     const avgLatency = mockMetrics.length > 0 
-      ? mockMetrics.reduce((sum, m) => sum + m.latency, 0) / mockMetrics.length 
+      ? mockMetrics.reduce((sum: number, m: any) => sum + (m.latency || 0), 0) / mockMetrics.length 
       : 0;
     const avgErrorRate = mockMetrics.length > 0 
-      ? mockMetrics.reduce((sum, m) => sum + m.error_rate, 0) / mockMetrics.length 
+      ? mockMetrics.reduce((sum: number, m: any) => sum + (m.error_rate || 0), 0) / mockMetrics.length 
       : 0;
     
-    res.json({ 
+    return res.json({ 
       ...service, 
       avg_latency: avgLatency, 
       avg_error_rate: avgErrorRate, 
