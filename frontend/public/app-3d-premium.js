@@ -8,8 +8,11 @@ let API_BASE;
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     // Local development
     API_BASE = 'http://localhost:3001/api';
+} else if (window.location.protocol === 'https:') {
+    // Production HTTPS - use relative path
+    API_BASE = `/api`;
 } else {
-    // Vercel production deployment
+    // Production HTTP fallback - use relative path
     API_BASE = `/api`;
 }
 
@@ -79,9 +82,12 @@ async function fetchLiveData() {
 
 async function checkBackendHealth() {
     try {
-        const response = await fetch(`http://${API_HOST}:${API_PORT}/health`);
+        // Construct health endpoint URL based on API_BASE
+        const baseUrl = API_BASE.replace('/api', '');
+        const response = await fetch(`${baseUrl}/health`);
         return response.ok;
     } catch {
+        console.warn('⚠ Backend health check failed');
         return false;
     }
 }

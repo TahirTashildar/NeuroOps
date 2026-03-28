@@ -3,9 +3,18 @@
 // Enhanced Three.js visualization with rich interactions, animations, and effects
 // ─────────────────────────────────────────────────────────────────────────────
 
-const API_HOST = window.location.hostname;
-const API_PORT = 3001;
-const API_BASE = `http://${API_HOST}:${API_PORT}/api`;
+// Auto-detect API endpoint based on deployment environment
+let API_BASE;
+if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    // Local development
+    API_BASE = 'http://localhost:3001/api';
+} else if (window.location.protocol === 'https:') {
+    // Production HTTPS - use relative path
+    API_BASE = '/api';
+} else {
+    // Production HTTP fallback
+    API_BASE = `http://${window.location.hostname}:3001/api`;
+}
 
 let SERVICES = [
     { id: 'gateway', name: 'API Gateway', icon: '⬡', port: 3000, deps: ['auth', 'products', 'orders', 'payment', 'inventory', 'notification'], bLat: 45, bRps: 850, bErr: 0.2, color: 0x64b5f6 },
@@ -116,9 +125,12 @@ async function fetchLiveData() {
 
 async function checkBackendHealth() {
     try {
-        const response = await fetch(`http://${API_HOST}:${API_PORT}/health`);
+        // Construct health endpoint URL based on API_BASE
+        const baseUrl = API_BASE.replace('/api', '');
+        const response = await fetch(`${baseUrl}/health`);
         return response.ok;
     } catch {
+        console.warn('⚠ Backend health check failed');
         return false;
     }
 }
