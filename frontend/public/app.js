@@ -473,6 +473,7 @@ async function handleChatSend() {
     const input = document.getElementById('chat-input');
     const msg = input.value.trim();
     if (!msg) return;
+    
     addChatMessage(msg, 'user');
     input.value = '';
 
@@ -492,11 +493,15 @@ async function handleChatSend() {
             const data = await response.json();
             const reply = data.reply || 'I could not derive a response. Please try again.';
             addChatMessage(reply, 'ai');
-            speakResponse(reply); // Only speak when user asks
+            speakResponse(reply);
             return;
+        } else {
+            console.warn('Assistant API returned status:', response.status);
+            throw new Error(`Server returned ${response.status}`);
         }
     } catch (e) {
-        console.warn('Assistant API call failed, fallback to local model', e);
+        console.warn('Assistant API call failed:', e.message);
+        // Still try to generate a local response
     }
 
     // Fallback local AI simulation if API is unavailable
@@ -601,47 +606,154 @@ function showPredictiveAlert() {
     setTimeout(() => alert.style.display = 'none', 5000);
 }
 
+// Voice Assistant State Management
+let voiceRecognition = null;
+let isRecognizing = false;
+
 function speakResponse(text) {
     if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.2;
-        utterance.pitch = 1;
-        utterance.volume = 0.8;
-        speechSynthesis.speak(utterance);
+        try {
+            // Cancel any ongoing speech
+            speechSynthesis.cancel();
+            
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.2;
+            utterance.pitch = 1;
+            utterance.volume = 0.8;
+            
+            utterance.onerror = (event) => {
+                console.warn('Text-to-speech error:', event.error);
+            };
+            
+            speechSynthesis.speak(utterance);
+        } catch (error) {
+            console.warn('Speech synthesis error:', error);
+        }
+    }
+}
+
+function initializeVoiceRecognition() {
+    if (voiceRecognition) return; // Already initialized
+    
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognitionAPI) {
+        console.warn('Speech Recognition not supported in this browser');
+        return false;
+    }
+    
+    try {
+        voiceRecognition = new SpeechRecognitionAPI();
+        voiceRecognition.continuous = false;
+        voiceRecognition.interimResults = false;
+        voiceRecognition.lang = 'en-US';
+
+        voiceRecognition.onstart = () => {
+            isRecognizing = true;
+            const voiceBtn = document.getElementById('voice-btn');
+            if (voiceBtn) {
+                voiceBtn.textContent = '🎙️';
+                voiceBtn.style.background = 'rgba(255, 170, 0, 0.2)';
+                voiceBtn.disabled = true;
+            }
+            console.log('🎤 Voice recognition started');
+        };
+
+        voiceRecognition.onresult = (event) => {
+            if (event.results.length > 0) {
+                const transcript = event.results[0][0].transcript;
+                console.log('🎙️ Recognized:', transcript);
+                
+                const chatInput = document.getElementById('chat-input');
+                if (chatInput) {
+                    chatInput.value = transcript;
+                    // Trigger chat send after voice input
+                    handleChatSend();
+                }
+            }
+        };
+
+        voiceRecognition.onend = () => {
+            isRecognizing = false;
+            const voiceBtn = document.getElementById('voice-btn');
+            if (voiceBtn) {
+                voiceBtn.textContent = '🎤';
+                voiceBtn.style.background = 'rgba(0, 255, 136, 0.1)';
+                voiceBtn.disabled = false;
+            }
+            console.log('🎤 Voice recognition ended');
+        };
+
+        voiceRecognition.onerror = (event) => {
+            isRecognizing = false;
+            console.error('Speech recognition error:', event.error);
+            
+            const voiceBtn = document.getElementById('voice-btn');
+            if (voiceBtn) {
+                voiceBtn.textContent = '🎤';
+                voiceBtn.style.background = 'rgba(255, 0, 0, 0.1)';
+                voiceBtn.disabled = false;
+            }
+            
+            let errorMessage = 'Voice recognition failed. ';
+            switch (event.error) {
+                case 'no-speech':
+                    errorMessage += 'No speech detected. Please try again.';
+                    break;
+                case 'network':
+                    errorMessage += 'Network error. Check your connection.';
+                    break;
+                case 'not-allowed':
+                    errorMessage += 'Microphone permission denied.';
+                    break;
+                default:
+                    errorMessage += 'Please try again or type your message.';
+            }
+            
+            addChatMessage(errorMessage, 'ai');
+        };
+        
+        return true;
+    } catch (error) {
+        console.error('Failed to initialize voice recognition:', error);
+        return false;
     }
 }
 
 function startVoiceRecognition() {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-        const recognition = new(window.SpeechRecognition || window.webkitSpeechRecognition)();
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        recognition.lang = 'en-US';
+    // Prevent multiple simultaneous recognition attempts
+    if (isRecognizing) {
+        console.warn('Voice recognition already in progress');
+        stopVoiceRecognition();
+        return;
+    }
+    
+    // Initialize if needed
+    if (!voiceRecognition) {
+        const initialized = initializeVoiceRecognition();
+        if (!initialized) {
+            addChatMessage('Voice recognition not supported in this browser.', 'ai');
+            return;
+        }
+    }
+    
+    try {
+        voiceRecognition.start();
+    } catch (error) {
+        console.error('Error starting voice recognition:', error);
+        addChatMessage('Failed to start voice recognition. Please try again.', 'ai');
+        isRecognizing = false;
+    }
+}
 
-        recognition.onstart = () => {
-            document.getElementById('voice-btn').textContent = '🎙️';
-            document.getElementById('voice-btn').style.background = 'rgba(255, 170, 0, 0.2)';
-        };
-
-        recognition.onresult = (event) => {
-            const transcript = event.results[0][0].transcript;
-            document.getElementById('chat-input').value = transcript;
-            handleChatSend();
-        };
-
-        recognition.onend = () => {
-            document.getElementById('voice-btn').textContent = '🎤';
-            document.getElementById('voice-btn').style.background = 'rgba(0, 255, 136, 0.1)';
-        };
-
-        recognition.onerror = (event) => {
-            console.error('Speech recognition error:', event.error);
-            addChatMessage('Voice recognition failed. Please try again or type your message.', 'ai');
-        };
-
-        recognition.start();
-    } else {
-        addChatMessage('Voice recognition not supported in this browser.', 'ai');
+function stopVoiceRecognition() {
+    if (voiceRecognition && isRecognizing) {
+        try {
+            voiceRecognition.stop();
+            isRecognizing = false;
+        } catch (error) {
+            console.error('Error stopping voice recognition:', error);
+        }
     }
 }
 
@@ -815,7 +927,11 @@ document.getElementById('chat-input').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') handleChatSend();
 });
 document.getElementById('voice-btn').addEventListener('click', () => {
-    startVoiceRecognition();
+    if (isRecognizing) {
+        stopVoiceRecognition();
+    } else {
+        startVoiceRecognition();
+    }
 });
 
 // Export button

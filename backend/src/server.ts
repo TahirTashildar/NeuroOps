@@ -20,6 +20,7 @@ import metricsRoutes from './api/routes/metrics';
 import servicesRoutes from './api/routes/services';
 import playbooksRoutes from './api/routes/playbooks';
 import logsRoutes from './api/routes/logs';
+import assistantRoutes from './api/routes/assistant';
 
 // Workers
 import { startIncidentDetector } from './workers/incident-detector';
@@ -127,6 +128,7 @@ export function createApp(): Express {
   app.use('/api/services', servicesRoutes);
   app.use('/api/playbooks', playbooksRoutes);
   app.use('/api/logs', logsRoutes);
+  app.use('/api/assistant', assistantRoutes);
 
   // Prometheus metrics endpoint
   app.get('/metrics', async (_req: Request, res: Response) => {
