@@ -5,23 +5,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NeuroOps — Causal AI Observability</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/three@r128/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@r128/examples/js/controls/OrbitControls.js"></script>
     <style>
-         :root {
-            --bg: #0f1419;
-            --bg2: #0d1117;
-            --surf: #161b22;
-            --txt: #c9d1d9;
-            --dim: #8b949e;
-            --dim2: #6e7681;
-            --bdr: #30363d;
-            --acc: #00d4ff;
-            --acc2: #7c3aed;
-            --red: #ff3366;
-            --grn: #00ff88;
-            --yel: #ffaa00;
-            --mono: 'Courier New', monospace;
+        :root {
+            --bg: #0a0e27;
+            --bg2: #0f1437;
+            --surf: #1a1f3a;
+            --txt: #e8eaf6;
+            --dim: #9fa8da;
+            --dim2: #7986cb;
+            --bdr: #303f9f;
+            --acc: #64b5f6;
+            --acc-purple: #b39ddb;
+            --acc-green: #81c784;
+            --red: #ef5350;
+            --grn: #66bb6a;
+            --yel: #ffd54f;
+            --mono: 'Inter', monospace;
         }
         
         html,
@@ -32,8 +34,8 @@
             padding: 0;
             background: var(--bg);
             color: var(--txt);
-            font-family: 'Roboto', sans-serif;
-            font-size: 11px;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
             overflow: hidden;
         }
         
@@ -51,51 +53,110 @@
             box-sizing: border-box;
         }
         
+        #canvas {
+            width: 100%;
+            height: calc(100% - 70px);
+            display: block;
+        }
+        
         #header {
-            height: 60px;
-            background: var(--bg2);
+            height: 70px;
+            background: linear-gradient(180deg, var(--bg2) 0%, rgba(15, 20, 55, 0.8) 100%);
             border-bottom: 1px solid var(--bdr);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 16px;
+            padding: 0 24px;
             flex-shrink: 0;
             position: relative;
+            z-index: 100;
+            backdrop-filter: blur(10px);
         }
         
         .logo {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
         }
         
         .logo-icon {
-            font-size: 28px;
+            font-size: 32px;
+            filter: drop-shadow(0 0 8px rgba(100, 181, 246, 0.5));
+        }
+        
+        .logo-text {
+            display: flex;
+            flex-direction: column;
         }
         
         .logo-name {
-            font-size: 18px;
+            font-size: 20px;
             font-weight: 700;
-            letter-spacing: .12em;
+            letter-spacing: .08em;
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(90deg, var(--acc) 0%, var(--acc-purple) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
         
         .logo-sub {
-            font-size: 8px;
+            font-size: 9px;
             color: var(--dim);
-            letter-spacing: .12em;
+            letter-spacing: .10em;
+            font-weight: 500;
         }
         
         .phase-pill {
-            background: rgba(0, 212, 255, .06);
+            background: rgba(100, 181, 246, 0.08);
             border: 1px solid var(--bdr);
-            padding: 6px 12px;
-            border-radius: 4px;
+            padding: 6px 14px;
+            border-radius: 6px;
             display: flex;
             align-items: center;
             gap: 8px;
-            font-size: 9px;
+            font-size: 10px;
             font-weight: 600;
-            letter-spacing: .12em;
+            letter-spacing: .10em;
+            color: var(--acc);
+            transition: all 0.3s ease;
+        }
+        
+        .phase-pill:hover {
+            background: rgba(100, 181, 246, 0.15);
+            border-color: var(--acc);
+            box-shadow: 0 0 12px rgba(100, 181, 246, 0.3);
+        }
+        
+        #stats {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            background: rgba(100, 181, 246, 0.05);
+            border: 1px solid rgba(100, 181, 246, 0.2);
+        }
+        
+        .stat-label {
+            font-size: 9px;
+            color: var(--dim);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+        }
+        
+        .stat-value {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--acc);
+            font-family: 'Poppins', sans-serif;
         }
         
         .phase-dot {

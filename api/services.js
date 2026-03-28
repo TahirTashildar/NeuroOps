@@ -1,0 +1,27 @@
+export default function handler(req, res) {
+    res.setHeader('Access-Control-Allow-Credentials', true);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+    res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+
+    // Mock services
+    const services = [
+        { id: 'gateway', name: 'API Gateway', icon: '⬡', deps: ['auth', 'products', 'orders'] },
+        { id: 'auth', name: 'Auth Service', icon: '🔐', deps: [] },
+        { id: 'products', name: 'Product Catalog', icon: '📦', deps: ['postgres'] },
+        { id: 'orders', name: 'Order Manager', icon: '🧾', deps: ['postgres', 'payment'] },
+        { id: 'payment', name: 'Payment Engine', icon: '💳', deps: [] },
+        { id: 'inventory', name: 'Inventory Sync', icon: '🗄', deps: ['redis'] },
+        { id: 'notification', name: 'Notifications', icon: '🔔', deps: ['rabbitmq'] },
+        { id: 'postgres', name: 'PostgreSQL', icon: '🐘', deps: [] },
+        { id: 'redis', name: 'Redis Cache', icon: '⚡', deps: [] },
+        { id: 'rabbitmq', name: 'RabbitMQ', icon: '🐇', deps: [] },
+    ];
+
+    res.status(200).json(services);
+}

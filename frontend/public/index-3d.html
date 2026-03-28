@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroOps 3D — Causal AI Observability</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/three@r128/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@r128/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        :root {
+            --bg: #0a0e27;
+            --bg2: #0f1437;
+            --surf: #1a1f3a;
+            --txt: #e8eaf6;
+            --dim: #9fa8da;
+            --dim2: #7986cb;
+            --bdr: #303f9f;
+            --acc-blue: #64b5f6;
+            --acc-purple: #b39ddb;
+            --acc-green: #81c784;
+            --red: #ef5350;
+            --grn: #66bb6a;
+            --yel: #ffd54f;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--txt);
+            overflow: hidden;
+        }
+        
+        body {
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+        }
+        
+        #canvas-container {
+            width: 100%;
+            height: calc(100% - 80px);
+            position: relative;
+        }
+        
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        #header {
+            height: 80px;
+            background: linear-gradient(180deg, var(--bg2) 0%, rgba(15, 20, 55, 0.9) 100%);
+            border-bottom: 1px solid var(--bdr);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 32px;
+            flex-shrink: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .logo-icon {
+            font-size: 36px;
+            filter: drop-shadow(0 0 12px rgba(100, 181, 246, 0.6));
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        .logo-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        
+        .logo-name {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(90deg, var(--acc-blue) 0%, var(--acc-purple) 50%, var(--acc-green) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .logo-sub {
+            font-size: 10px;
+            color: var(--dim);
+            letter-spacing: 0.10em;
+            font-weight: 500;
+        }
+        
+        .header-stats {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+        }
+        
+        .stat-group {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+        }
+        
+        .stat-label {
+            font-size: 9px;
+            color: var(--dim);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        
+        .stat-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--acc-blue);
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        .stat-value.green {
+            color: var(--acc-green);
+        }
+        
+        .stat-value.purple {
+            color: var(--acc-purple);
+        }
+        
+        .incidents-badge {
+            background: rgba(239, 83, 80, 0.2);
+            border: 1px solid var(--red);
+            border-radius: 12px;
+            padding: 4px 12px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--red);
+            animation: pulse 2s ease-in-out infinite;
+            min-width: 28px;
+            text-align: center;
+        }
+        
+        .phase-pill {
+            background: rgba(100, 181, 246, 0.1);
+            border: 1px solid var(--bdr);
+            padding: 8px 16px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.10em;
+            color: var(--acc-blue);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .phase-pill:hover {
+            background: rgba(100, 181, 246, 0.15);
+            border-color: var(--acc-blue);
+            box-shadow: 0 0 16px rgba(100, 181, 246, 0.4);
+            transform: translateY(-2px);
+        }
+        
+        .phase-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--acc-green);
+            box-shadow: 0 0 8px var(--acc-green);
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        #info-panel {
+            position: absolute;
+            bottom: 24px;
+            left: 24px;
+            width: 320px;
+            background: rgba(15, 20, 55, 0.95);
+            border: 1px solid var(--bdr);
+            border-radius: 12px;
+            padding: 24px;
+            backdrop-filter: blur(20px);
+            z-index: 10;
+            font-size: 12px;
+            max-height: 360px;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            display: none;
+        }
+        
+        .info-title {
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--acc-blue);
+            margin-bottom: 16px;
+            font-family: 'Poppins', sans-serif;
+            border-bottom: 1px solid rgba(48, 63, 159, 0.3);
+            padding-bottom: 8px;
+        }
+        
+        .info-item {
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(48, 63, 159, 0.3);
+        }
+        
+        .info-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .info-label {
+            font-size: 11px;
+            color: var(--dim);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+        
+        .info-value {
+            font-size: 13px;
+            color: var(--txt);
+            font-weight: 700;
+        }
+        
+        .controls-panel, .timeline-scrubber {
+            position: absolute;
+            background: rgba(15, 20, 55, 0.95);
+            border: 1px solid var(--bdr);
+            border-radius: 12px;
+            backdrop-filter: blur(20px);
+            z-index: 10;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        }
+        
+        .controls-panel {
+            top: 100px;
+            right: 24px;
+            padding: 20px;
+            min-width: 180px;
+        }
+        
+        .timeline-scrubber {
+            bottom: 24px;
+            right: 24px;
+            padding: 16px;
+            min-width: 280px;
+        }
+        
+        .controls-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--acc-blue);
+            margin-bottom: 16px;
+            font-family: 'Poppins', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        
+        .control-btn {
+            display: block;
+            width: 100%;
+            padding: 10px 14px;
+            margin-bottom: 8px;
+            background: rgba(100, 181, 246, 0.1);
+            border: 1px solid var(--bdr);
+            border-radius: 8px;
+            color: var(--acc-blue);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+            text-align: left;
+        }
+        
+        .control-btn:hover {
+            background: rgba(100, 181, 246, 0.2);
+            border-color: var(--acc-blue);
+            box-shadow: 0 0 16px rgba(100, 181, 246, 0.4);
+            transform: translateX(-4px);
+        }
+        
+        .control-btn:last-child {
+            margin-bottom: 0;
+        }
+        
+        .timeline-title {
+            font-size: 11px;
+            color: var(--dim);
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+        
+        .timeline-controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .timeline-btn {
+            flex: 1;
+            padding: 6px 8px;
+            background: rgba(129, 199, 132, 0.2);
+            border: 1px solid var(--acc-green);
+            color: var(--acc-green);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .timeline-btn:hover {
+            background: rgba(129, 199, 132, 0.3);
+        }
+        
+        .timeline-btn.active {
+            background: var(--acc-green);
+            color: white;
+        }
+        
+        #timeline-slider {
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: var(--bdr);
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        #timeline-slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--acc-blue);
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(100, 181, 246, 0.6);
+        }
+        
+        #timeline-time {
+            font-size: 10px;
+            color: var(--dim);
+            text-align: center;
+            margin-top: 4px;
+        }
+        
+        #tooltip {
+            position: absolute;
+            background: rgba(15, 20, 55, 0.98);
+            border: 1px solid var(--acc-blue);
+            border-radius: 8px;
+            padding: 16px;
+            font-size: 11px;
+            pointer-events: none;
+            display: none;
+            z-index: 20;
+            max-width: 280px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 20px 40px rgba(100, 181, 246, 0.3);
+        }
+        
+        .tooltip-name {
+            font-weight: 700;
+            color: var(--acc-blue);
+            margin-bottom: 8px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 13px;
+        }
+        
+        .tooltip-stat {
+            color: var(--txt);
+            margin-bottom: 4px;
+            font-size: 11px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            cursor: pointer;
+            padding: 8px;
+        }
+        
+        .hamburger span {
+            width: 24px;
+            height: 2px;
+            background: var(--acc-blue);
+            border-radius: 1px;
+            transition: 0.3s;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.05); }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.4s ease-out;
+        }
+        
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .header-stats {
+                gap: 12px;
+            }
+            
+            .stat-value {
+                font-size: 14px;
+            }
+            
+            .controls-panel, .timeline-scrubber {
+                transform: translateX(100%);
+                transition: transform 0.3s ease;
+            }
+            
+            .controls-panel.active, .timeline-scrubber.active {
+                transform: translateX(0);
+            }
+            
+            .hamburger {
+                display: flex;
+            }
+            
+            #info-panel {
+                left: 0;
+                bottom: 0;
+                width: 100%;
+                max-height: 50%;
+                border-radius: 12px 12px 0 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <div class="hamburger" onclick="toggleMobilePanels()">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <div class="logo">
+                <div class="logo-icon">🧠</div>
+                <div class="logo-text">
+                    <div class="logo-name">NeuroOps</div>
+                    <div class="logo-sub">3D CAUSAL OBSERVABILITY</div>
+                </div>
+            </div>
+        </div>
+        <div class="header-stats">
+            <div class="stat-group">
+                <div class="stat-label">Services</div>
+                <div class="stat-value" id="stat-services">11</div>
+            </div>
+            <div class="stat-group">
+                <div class="stat-label">Health</div>
+                <div class="stat-value green" id="stat-health">98.5%</div>
+            </div>
+            <div class="stat-group">
+                <div class="stat-label">Latency</div>
+                <div class="stat-value purple" id="stat-latency">58ms</div>
+            </div>
+            <div id="incidents-badge" class="incidents-badge">0</div>
+            <div class="phase-pill">
+                <div class="phase-dot"></div>
+                <span>LIVE</span>
+            </div>
+        </div>
+    </div>
+    
+    <div id="canvas-container"></div>
+    
+    <div class="controls-panel" id="controls-panel">
+        <div class="controls-title">Interactive Controls</div>
+        <button class="control-btn" onclick="resetView()">🔄 Reset View</button>
+        <button class="control-btn" onclick="autoRotateToggle()">🔁 Auto Rotate</button>
+        <button class="control-btn" onclick="showParticles()">✨ Particles</button>
+        <button class="control-btn" onclick="toggleDependencies()">🔗 Dependencies</button>
+        <button class="control-btn" onclick="triggerIncident()">⚠️ Incident</button>
+        <button class="control-btn" onclick="toggleTimeline()">📊 Timeline</button>
+        <button class="control-btn" onclick="toggleVR()">🆚 VR Mode</button>
+        <button class="control-btn" onclick="toggleAudio()">🔊 Audio</button>
+        <button class="control-btn" onclick="takeScreenshot()">📸 Screenshot</button>
+        <button class="control-btn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
+    </div>
+    
+    <div class="timeline-scrubber" id="timeline-scrubber">
+        <div class="timeline-title">Incident Timeline</div>
+        <div class="timeline-controls">
+            <button class="timeline-btn" id="timeline-play">▶️</button>
+            <button class="timeline-btn" id="timeline-pause">⏸️</button>
+        </div>
+        <input type="range" id="timeline-slider" min="0" max="100" value="0">
+        <div id="timeline-time">00:00.000 / --:--.---</div>
+    </div>
+    
+    <div id="info-panel">
+        <div class="info-title" id="info-service-name">Select a service...</div>
+        <div id="info-content"></div>
+    </div>
+    
+    <div id="tooltip"></div>
+
+    <script>
+        // Mobile toggle
+        function toggleMobilePanels() {
+            document.getElementById('controls-panel').classList.toggle('active');
+            document.getElementById('timeline-scrubber').classList.toggle('active');
+        }
+        
+        // Fullscreen toggle
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+        
+        // Expose to global for app-3d.js
+        window.toggleTimeline = () => {};
+        window.toggleVR = () => {};
+        window.toggleAudio = () => {};
+        window.takeScreenshot = () => {};
+    </script>
+    <script src="app-3d.js"></script>
+</body>
+</html>
