@@ -24,8 +24,6 @@ export function startRemediationExecutor() {
           const analysisJson = await redis.get(`incident:${incident.id}:analysis`);
           if (!analysisJson) continue;
 
-          const { playbook } = JSON.parse(analysisJson);
-
           // Execute remediation steps (mock execution)
           logger.info(`Executing remediation for ${incident.id}`);
           

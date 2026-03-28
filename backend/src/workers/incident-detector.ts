@@ -1,12 +1,11 @@
 import pino from 'pino';
 import cron from 'node-cron';
 import { getRedis } from '../config/redis';
-import { AnomalyService, CausalService, IncidentService } from '../services';
-import { queryMany, query } from '../config/database';
+import { AnomalyService, IncidentService } from '../services';
+import { queryMany } from '../config/database';
 
 const logger = pino();
 const anomalyService = new AnomalyService();
-const causalService = new CausalService();
 const incidentService = new IncidentService();
 
 export function startIncidentDetector() {

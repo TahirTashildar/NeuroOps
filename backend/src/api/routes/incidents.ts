@@ -41,10 +41,10 @@ router.get('/:id', async (req: Request, res: Response) => {
     if (!incident) {
       return res.status(404).json({ error: 'Incident not found' });
     }
-    res.json(incident);
+    return res.json(incident);
   } catch (error) {
     logger.error(error);
-    res.status(500).json({ error: 'Failed to fetch incident' });
+    return res.status(500).json({ error: 'Failed to fetch incident' });
   }
 });
 
@@ -86,10 +86,10 @@ router.post('/:id/trigger', async (req: Request, res: Response) => {
     const redis = getRedis();
     await redis.set(`incident:${incident.id}`, JSON.stringify({ ...incident, phase: 'injection' }), 'EX', 600);
 
-    res.json({ success: true, incident });
+    return res.json({ success: true, incident });
   } catch (error) {
     logger.error(error);
-    res.status(500).json({ error: 'Failed to trigger incident' });
+    return res.status(500).json({ error: 'Failed to trigger incident' });
   }
 });
 

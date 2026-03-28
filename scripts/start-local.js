@@ -1,16 +1,16 @@
 const { spawn } = require('child_process');
 
 function run(name, command, args, options = {}) {
-  const cp = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'], ...options, shell: true });
+    const cp = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'], ...options, shell: true });
 
-  cp.stdout.on('data', (data) => {
-    process.stdout.write(`[${name} stdout] ${data}`);
-  });
-  cp.stderr.on('data', (data) => {
-    process.stderr.write(`[${name} stderr] ${data}`);
-  });
-  cp.on('exit', (code, signal) => {
-    console.log(`[${name}] exited with code ${code}${signal ? ` signal ${signal}` : ''}`);
+    cp.stdout.on('data', (data) => {
+        process.stdout.write(`[${name} stdout] ${data}`);
+    });
+    cp.stderr.on('data', (data) => {
+        process.stderr.write(`[${name} stderr] ${data}`);
+    });
+    cp.on('exit', (code, signal) => {
+                console.log(`[${name}] exited with code ${code}${signal ? ` signal ${signal}` : ''}`);
   });
 
   return cp;

@@ -302,7 +302,7 @@ function initCharts() {
     latencyChart = new Chart(ctxLatency, {
         type: 'line',
         data: {
-            labels: Array.from({length: 20}, (_, i) => i + 1),
+            labels: Array.from({ length: 20 }, (_, i) => i + 1),
             datasets: SERVICES.map(s => ({
                 label: s.name,
                 data: serviceState[s.id].spark,
@@ -332,7 +332,7 @@ function initCharts() {
     rpsChart = new Chart(ctxRps, {
         type: 'line',
         data: {
-            labels: Array.from({length: 20}, (_, i) => i + 1),
+            labels: Array.from({ length: 20 }, (_, i) => i + 1),
             datasets: SERVICES.map(s => ({
                 label: s.name,
                 data: serviceState[s.id].sparkRps,
@@ -362,7 +362,7 @@ function initCharts() {
     errorChart = new Chart(ctxError, {
         type: 'line',
         data: {
-            labels: Array.from({length: 20}, (_, i) => i + 1),
+            labels: Array.from({ length: 20 }, (_, i) => i + 1),
             datasets: SERVICES.map(s => ({
                 label: s.name,
                 data: serviceState[s.id].sparkErr,
@@ -584,7 +584,7 @@ function speakResponse(text) {
 
 function startVoiceRecognition() {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        const recognition = new(window.SpeechRecognition || window.webkitSpeechRecognition)();
         recognition.continuous = false;
         recognition.interimResults = false;
         recognition.lang = 'en-US';

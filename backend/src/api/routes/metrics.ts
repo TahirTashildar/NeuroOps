@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { queryMany, queryOne } from '../../config/database';
+import { queryMany } from '../../config/database';
 import pino from 'pino';
 
 const router = Router();
@@ -8,7 +8,7 @@ const logger = pino();
 // GET /api/metrics - Get aggregated metrics
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { service_id, timeframe = '1h' } = req.query;
+    const { service_id } = req.query;
     
     let sql = 'SELECT * FROM metrics WHERE 1=1';
     const params: any[] = [];
@@ -28,9 +28,8 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // POST /api/metrics - Record metrics
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (_req: Request, res: Response) => {
   try {
-    const { service_id, latency, rps, error_rate, cpu, memory } = req.body;
     const now = new Date();
 
     // This will be batched by the backend from Prometheus
