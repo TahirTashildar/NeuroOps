@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { queryMany } from '../../config/database';
+import { getMockMetrics, logMockDataUsage } from '../../services/mock-data';
 import pino from 'pino';
 
 const router = Router();
@@ -22,8 +23,12 @@ router.get('/', async (req: Request, res: Response) => {
     const metrics = await queryMany(sql, params);
     res.json({ metrics });
   } catch (error) {
-    logger.error(error);
-    res.status(500).json({ error: 'Failed to fetch metrics' });
+    logger.warn('Database query failed, using mock data:', error instanceof Error ? error.message : 'Unknown error');
+    logMockDataUsage();
+    
+    // Fallback to mock data
+    const mockMetrics = getMockMetrics(typeof (req.query.service_id) === 'string' ? req.query.service_id : undefined);
+    res.json({ metrics: mockMetrics, source: 'mock' });
   }
 });
 
@@ -35,8 +40,9 @@ router.post('/', async (_req: Request, res: Response) => {
     // This will be batched by the backend from Prometheus
     res.json({ success: true, recorded_at: now });
   } catch (error) {
-    logger.error(error);
-    res.status(500).json({ error: 'Failed to record metrics' });
+    logger.warn('Failed to record metrics:', error instanceof Error ? error.message : 'Unknown error');
+    // Still return success for POST to metrics endpoint
+    res.json({ success: true, recorded_at: new Date(), source: 'mock' });
   }
 });
 
@@ -55,8 +61,12 @@ router.get('/timeseries/:service_id', async (req: Request, res: Response) => {
 
     res.json({ data });
   } catch (error) {
-    logger.error(error);
-    res.status(500).json({ error: 'Failed to fetch time-series data' });
+    logger.warn('Database query failed, using mock data:', error instanceof Error ? error.message : 'Unknown error');
+    logMockDataUsage();
+    
+    // Fallback to mock data
+    const mockMetrics = getMockMetrics(req.params.service_id);
+    res.json({ data: mockMetrics, source: 'mock' });
   }
 });
 

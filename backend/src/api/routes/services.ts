@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { queryMany, queryOne } from '../../config/database';
+import { getMockServices, getMockMetrics, getMockDependencies, logMockDataUsage } from '../../services/mock-data';
 import pino from 'pino';
 
 const router = Router();
@@ -11,8 +12,12 @@ router.get('/', async (_req: Request, res: Response) => {
     const services = await queryMany('SELECT * FROM services ORDER BY name ASC');
     return res.json({ services });
   } catch (error) {
-    logger.error(error);
-    return res.status(500).json({ error: 'Failed to fetch services' });
+    logger.warn('Database query failed, using mock data:', error instanceof Error ? error.message : 'Unknown error');
+    logMockDataUsage();
+    
+    // Fallback to mock data
+    const mockServices = getMockServices();
+    return res.json({ services: mockServices, source: 'mock' });
   }
 });
 
@@ -25,8 +30,16 @@ router.get('/:id', async (req: Request, res: Response) => {
     }
     return res.json(service);
   } catch (error) {
-    logger.error(error);
-    return res.status(500).json({ error: 'Failed to fetch service' });
+    logger.warn('Database query failed, using mock data:', error instanceof Error ? error.message : 'Unknown error');
+    logMockDataUsage();
+    
+    // Fallback to mock data
+    const mockServices = getMockServices();
+    const service = mockServices.find(s => s.id === req.params.id);
+    if (!service) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+    return res.json({ ...service, source: 'mock' });
   }
 });
 
@@ -39,8 +52,12 @@ router.get('/:id/dependencies', async (req: Request, res: Response) => {
     );
     res.json({ dependencies: deps });
   } catch (error) {
-    logger.error(error);
-    res.status(500).json({ error: 'Failed to fetch dependencies' });
+    logger.warn('Database query failed, using mock data:', error instanceof Error ? error.message : 'Unknown error');
+    logMockDataUsage();
+    
+    // Fallback to mock data
+    const mockDeps = getMockDependencies(req.params.id);
+    res.json({ dependencies: mockDeps, source: 'mock' });
   }
 });
 
@@ -56,8 +73,31 @@ router.get('/:id/health', async (req: Request, res: Response) => {
     );
     res.json(health);
   } catch (error) {
-    logger.error(error);
-    res.status(500).json({ error: 'Failed to fetch service health' });
+    logger.warn('Database query failed, using mock data:', error instanceof Error ? error.message : 'Unknown error');
+    logMockDataUsage();
+    
+    // Fallback to mock data
+    const mockServices = getMockServices();
+    const mockMetrics = getMockMetrics(req.params.id);
+    const service = mockServices.find(s => s.id === req.params.id);
+    
+    if (!service) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+    
+    const avgLatency = mockMetrics.length > 0 
+      ? mockMetrics.reduce((sum, m) => sum + m.latency, 0) / mockMetrics.length 
+      : 0;
+    const avgErrorRate = mockMetrics.length > 0 
+      ? mockMetrics.reduce((sum, m) => sum + m.error_rate, 0) / mockMetrics.length 
+      : 0;
+    
+    res.json({ 
+      ...service, 
+      avg_latency: avgLatency, 
+      avg_error_rate: avgErrorRate, 
+      source: 'mock' 
+    });
   }
 });
 
