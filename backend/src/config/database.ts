@@ -5,6 +5,7 @@ import pino from 'pino';
 const logger = pino({ level: config.logging.level });
 
 let pool: Pool | null = null;
+let dbConnected = false;
 
 export function getConnection(): Pool {
   if (!pool) {
@@ -20,9 +21,32 @@ export function getConnection(): Pool {
       connectionTimeoutMillis: config.db.connectionTimeoutMillis,
     });
 
-    pool.on('error', (err: Error) => logger.error('Unexpected error on idle client', err));
+    pool.on('error', (err: Error) => {
+      logger.warn('Database connection error:', err.message);
+      dbConnected = false;
+    });
+    
+    pool.on('connect', () => {
+      logger.info('Database connected');
+      dbConnected = true;
+    });
+    
+    // Test connection asynchronously but don't block
+    pool.query('SELECT NOW()').then(
+      () => {
+        logger.info('Database test connection successful');
+        dbConnected = true;
+      },
+      (err) => {
+        logger.warn('Database test connection failed (non-blocking):', err.message);
+      }
+    );
   }
   return pool;
+}
+
+export function isDatabaseConnected(): boolean {
+  return dbConnected;
 }
 
 export async function query(text: string, params?: any[]): Promise<any> {

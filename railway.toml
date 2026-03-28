@@ -1,0 +1,16 @@
+[build]
+builder = "nixpacks"
+# Build command - compiles TypeScript to JavaScript
+buildCommand = "cd backend && npm install && npm run build"
+
+[start]
+# Start command - runs the compiled backend
+cmd = "cd backend && node dist/index.js"
+
+[env]
+# Environment configuration for Railway
+NODE_ENV = "production"
+API_HOST = "0.0.0.0"
+API_PORT = "$PORT"
+DB_SSL = "true"
+

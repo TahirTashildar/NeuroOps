@@ -4,8 +4,8 @@ dotenv.config();
 
 export const config = {
   env: process.env.NODE_ENV || 'development',
-  port: parseInt(process.env.API_PORT || '3001', 10),
-  apiHost: process.env.API_HOST || 'localhost',
+  port: parseInt(process.env.PORT || process.env.API_PORT || '3001', 10),
+  apiHost: process.env.API_HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost'),
   
   // Database
   db: {

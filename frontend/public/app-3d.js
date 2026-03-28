@@ -59,6 +59,15 @@ let timelineStartTime = 0;
 let timelineAnimationId = null;
 let timelineIncidents = []; // sorted incidents with timestamps
 
+// Step 7: New Interactions - Drag Connections, Wheel Explode, Heatmaps
+let isDraggingConnection = false;
+let dragStartNode = null;
+let tempConnectionLine = null;
+let wheelExplodeActive = false;
+let wheelExplodeScale = 1;
+let heatmapMode = false;
+let draggableConnections = new Map(); // User-created temp connections
+
 // ─────────────────────────────────────────────────────────────────────────────
 // API INTEGRATION
 // ─────────────────────────────────────────────────────────────────────────────
@@ -223,7 +232,10 @@ controls.maxDistance = 200;
     
     window.addEventListener('resize', onWindowResize);
     renderer.domElement.addEventListener('mousemove', onMouseMove);
+    renderer.domElement.addEventListener('mousedown', onMouseDown);
+    renderer.domElement.addEventListener('mouseup', onMouseUp);
     renderer.domElement.addEventListener('click', onCanvasClick);
+    renderer.domElement.addEventListener('wheel', onMouseWheel, false);
     document.addEventListener('keydown', onKeyDown);
     
     animate();
@@ -520,6 +532,25 @@ function onMouseMove(event) {
     const meshes = Array.from(serviceNodes.values()).map(n => n.mesh);
     const intersects = raycaster.intersectObjects(meshes);
     
+    // Update drag connection line if dragging
+    if (isDraggingConnection && tempConnectionLine) {
+        const positions = tempConnectionLine.geometry.attributes.position.array;
+        if (intersects.length > 0) {
+            const point = intersects[0].point;
+            positions[3] = point.x;
+            positions[4] = point.y;
+            positions[5] = point.z;
+        } else {
+            const direction = raycaster.ray.direction;
+            const point = raycaster.ray.origin.clone().add(direction.multiplyScalar(50));
+            positions[3] = point.x;
+            positions[4] = point.y;
+            positions[5] = point.z;
+        }
+        tempConnectionLine.geometry.attributes.position.needsUpdate = true;
+        return;
+    }
+    
     if (hoveredNode && hoveredNode !== selectedNode) {
         resetNodeAppearance(hoveredNode);
     }
@@ -529,11 +560,96 @@ function onMouseMove(event) {
         highlightNode(hoveredNode);
         highlightDependencies(hoveredNode);
         showTooltip(event, hoveredNode);
+        renderer.domElement.style.cursor = 'pointer';
     } else {
         hoveredNode = null;
         resetAllConnections();
         hideTooltip();
+        renderer.domElement.style.cursor = 'grab';
     }
+}
+
+function onMouseDown(event) {
+    if (event.button !== 2 && !event.shiftKey) return;
+    
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / (window.innerHeight - 80)) * 2 + 1;
+    
+    raycaster.setFromCamera(mouse, camera);
+    const meshes = Array.from(serviceNodes.values()).map(n => n.mesh);
+    const intersects = raycaster.intersectObjects(meshes);
+    
+    if (intersects.length > 0) {
+        dragStartNode = intersects[0].object;
+        isDraggingConnection = true;
+        
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array([
+            dragStartNode.position.x, dragStartNode.position.y, dragStartNode.position.z,
+            dragStartNode.position.x, dragStartNode.position.y, dragStartNode.position.z
+        ]);
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        
+        const material = new THREE.LineBasicMaterial({
+            color: 0xffd54f,
+            transparent: true,
+            opacity: 0.8,
+            linewidth: 3
+        });
+        
+        tempConnectionLine = new THREE.Line(geometry, material);
+        scene.add(tempConnectionLine);
+        playSound(600, 0.08, 0.2);
+    }
+}
+
+function onMouseUp(event) {
+    if (!isDraggingConnection) return;
+    
+    isDraggingConnection = false;
+    
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / (window.innerHeight - 80)) * 2 + 1;
+    
+    raycaster.setFromCamera(mouse, camera);
+    const meshes = Array.from(serviceNodes.values()).map(n => n.mesh);
+    const intersects = raycaster.intersectObjects(meshes);
+    
+    if (intersects.length > 0 && dragStartNode !== intersects[0].object) {
+        const targetNode = intersects[0].object;
+        const fromId = dragStartNode.userData.serviceId;
+        const toId = targetNode.userData.serviceId;
+        
+        addDynamicConnection(fromId, toId);
+        playSound(800, 0.1, 0.3);
+    }
+    
+    if (tempConnectionLine) {
+        scene.remove(tempConnectionLine);
+        tempConnectionLine = null;
+    }
+    dragStartNode = null;
+}
+
+function onMouseWheel(event) {
+    event.preventDefault();
+    
+    if (!wheelExplodeActive) {
+        wheelExplodeActive = true;
+        playSound(900, 0.05, 0.2);
+    }
+    
+    const delta = event.deltaY > 0 ? -0.05 : 0.05;
+    wheelExplodeScale += delta;
+    wheelExplodeScale = Math.max(0.5, Math.min(2.5, wheelExplodeScale));
+    
+    applyWheelExplode();
+    
+    clearTimeout(window.wheelExplodeTimer);
+    window.wheelExplodeTimer = setTimeout(() => {
+        wheelExplodeActive = false;
+        wheelExplodeScale = 1;
+    }, 1500);
 }
 
 function onCanvasClick(event) {
@@ -556,7 +672,7 @@ function onKeyDown(event) {
     switch(event.key.toLowerCase()) {
         case 'r':
             resetView();
-            playSound(800, 0.1, 0.1); // reset ping
+            playSound(800, 0.1, 0.1);
             break;
         case 'd':
             toggleDependencies();
@@ -576,10 +692,19 @@ function onKeyDown(event) {
             break;
         case 'i':
             triggerIncident();
-            playSound(300, 0.3, 0.5); // alarm
+            playSound(300, 0.3, 0.5);
             break;
         case 'm':
             toggleAudio();
+            break;
+        case 'h':
+            toggleHeatmapMode();
+            break;
+        case 'e':
+            activateWheelExplodeManual();
+            break;
+        case 'x':
+            clearDynamicConnections();
             break;
     }
 }
@@ -899,6 +1024,152 @@ function updateStats() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// STEP 7: NEW INTERACTIONS - Drag Connections, Wheel Explode, Heatmaps
+// ─────────────────────────────────────────────────────────────────────────────
+
+function addDynamicConnection(fromId, toId) {
+    const connKey = `${fromId}-${toId}`;
+    
+    if (draggableConnections.has(connKey)) {
+        console.log('Connection already exists');
+        return;
+    }
+    
+    const fromNode = serviceNodes.get(fromId);
+    const toNode = serviceNodes.get(toId);
+    
+    if (!fromNode || !toNode) return;
+    
+    const points = [fromNode.mesh.position, toNode.mesh.position];
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    
+    const material = new THREE.LineBasicMaterial({
+        color: 0xff5722,
+        transparent: true,
+        opacity: 0.6,
+        linewidth: 2,
+        dashed: true,
+        dashSize: 3,
+        gapSize: 3
+    });
+    
+    const line = new THREE.Line(geometry, material);
+    line.userData = { isDynamic: true, from: fromId, to: toId };
+    scene.add(line);
+    
+    draggableConnections.set(connKey, { line, from: fromId, to: toId });
+    console.log('✨ Dynamic connection created:', connKey);
+    updateConnectionsDisplay();
+}
+
+function clearDynamicConnections() {
+    draggableConnections.forEach(({ line }) => {
+        scene.remove(line);
+    });
+    draggableConnections.clear();
+    console.log('🗑️ All dynamic connections cleared');
+    playSound(500, 0.1, 0.2);
+}
+
+function updateConnectionsDisplay() {
+    const count = draggableConnections.size;
+    const info = document.getElementById('info-panel');
+    if (info && count > 0) {
+        const msg = document.createElement('div');
+        msg.style.cssText = 'font-size: 11px; color: #ff5722; margin-top: 8px;';
+        msg.textContent = `📍 ${count} dynamic connection(s) - Press X to clear`;
+        const existing = info.querySelector('[data-dynamic-msg]');
+        if (existing) existing.remove();
+        msg.setAttribute('data-dynamic-msg', 'true');
+        info.appendChild(msg);
+    }
+}
+
+function applyWheelExplode() {
+    serviceNodes.forEach((nodeData, id) => {
+        const distance = nodeData.mesh.position.length();
+        const explodeVector = nodeData.mesh.position.clone().normalize().multiplyScalar(distance * (wheelExplodeScale - 1));
+        nodeData.mesh.position.add(explodeVector);
+        
+        nodeData.mesh.scale.set(wheelExplodeScale, wheelExplodeScale, wheelExplodeScale);
+    });
+    
+    updateDynamicConnectionGeometries();
+}
+
+function updateDynamicConnectionGeometries() {
+    draggableConnections.forEach(({ line, from, to }) => {
+        const fromNode = serviceNodes.get(from);
+        const toNode = serviceNodes.get(to);
+        
+        if (fromNode && toNode) {
+            const positions = line.geometry.attributes.position.array;
+            positions[0] = fromNode.mesh.position.x;
+            positions[1] = fromNode.mesh.position.y;
+            positions[2] = fromNode.mesh.position.z;
+            positions[3] = toNode.mesh.position.x;
+            positions[4] = toNode.mesh.position.y;
+            positions[5] = toNode.mesh.position.z;
+            line.geometry.attributes.position.needsUpdate = true;
+        }
+    });
+}
+
+function activateWheelExplodeManual() {
+    if (!wheelExplodeActive) {
+        wheelExplodeActive = true;
+        console.log('✨ Wheel explode ACTIVATED (press E again or scroll to deactivate)');
+        playSound(1200, 0.1, 0.2);
+    } else {
+        wheelExplodeActive = false;
+        wheelExplodeScale = 1;
+        serviceNodes.forEach((nodeData) => {
+            nodeData.mesh.position.copy(nodeData.worldPos);
+            nodeData.mesh.scale.set(1, 1, 1);
+        });
+        updateDynamicConnectionGeometries();
+        console.log('✨ Wheel explode DEACTIVATED');
+        playSound(600, 0.1, 0.2);
+    }
+}
+
+function toggleHeatmapMode() {
+    heatmapMode = !heatmapMode;
+    
+    serviceNodes.forEach((nodeData) => {
+        if (heatmapMode) {
+            const errorRate = nodeData.service.bErr;
+            let heatColor = 0x81c784;
+            if (errorRate > 0.3) heatColor = 0xef5350;
+            else if (errorRate > 0.15) heatColor = 0xffd54f;
+            else if (errorRate > 0.05) heatColor = 0xffa726;
+            
+            nodeData.mesh.material.color.setHex(heatColor);
+            nodeData.mesh.material.emissive.setHex(heatColor);
+            nodeData.mesh.material.emissiveIntensity = 0.5;
+            
+            const glow = nodeData.mesh.children.find(c => c.userData.isGlow);
+            if (glow) {
+                glow.material.color.setHex(heatColor);
+            }
+        } else {
+            nodeData.mesh.material.color.setHex(nodeData.originalColor);
+            nodeData.mesh.material.emissive.setHex(nodeData.service.color);
+            nodeData.mesh.material.emissiveIntensity = 0.3;
+            
+            const glow = nodeData.mesh.children.find(c => c.userData.isGlow);
+            if (glow) {
+                glow.material.color.setHex(nodeData.originalColor);
+            }
+        }
+    });
+    
+    const status = heatmapMode ? 'ON' : 'OFF';
+    console.log(`🔥 Heatmap Mode: ${status}`);
+    playSound(heatmapMode ? 1000 : 500, 0.1, 0.2);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ENHANCED ANIMATION LOOP
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -925,6 +1196,9 @@ function animate() {
             }
         });
     });
+    
+    // Update dynamic connection geometries to follow nodes
+    updateDynamicConnectionGeometries();
     
     if (particleSystem.userData.visible) {
         const positions = particleSystem.geometry.attributes.position.array;
@@ -1010,6 +1284,9 @@ window.cycleCameraView = cycleCameraView;
 window.toggleTimeline = toggleTimeline;
 window.updateTimelineUI = updateTimelineUI;
 window.toggleVR = toggleVR;
+window.toggleHeatmapMode = toggleHeatmapMode;
+window.activateWheelExplodeManual = activateWheelExplodeManual;
+window.clearDynamicConnections = clearDynamicConnections;
 
 // VR functions
 function initVR() {
