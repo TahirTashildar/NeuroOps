@@ -1,0 +1,30 @@
+[build]
+  # For pure static site - no build needed
+  command = "echo 'Static site deployment'"
+  publish = "frontend/public"
+
+[build.environment]
+  # Environment variables for frontend
+  VITE_API_URL = "$VITE_API_URL"
+
+# Redirect for SPA - send all non-file requests to index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Cache control headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/app-3d.js"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
