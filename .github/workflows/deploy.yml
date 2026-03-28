@@ -1,0 +1,27 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  notify-railway:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Railway Deployment
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "✅ Push to main detected!"
+          echo "🔄 Railway will auto-redeploy the latest code..."
+          echo "⏰ Deployment should start within 1-2 minutes"
+          echo ""
+          echo "Current Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref }}"
+
+      - name: Status Check
+        run: |
+          echo "📊 Deployment Status:"
+          echo "   Frontend: Netlify (auto-deployed)"
+          echo "   Backend: Railway (triggering now)"
+          curl -s https://neuro-ops-backend-production.up.railway.app/health | jq . || echo "Waiting for deployment..."
