@@ -72,10 +72,10 @@ Start-Sleep -Seconds 2
 try {
     $response = Invoke-WebRequest -Uri "http://localhost:3001/health" -ErrorAction SilentlyContinue
     if ($response.StatusCode -eq 200) {
-        Write-Host "✓ Backend is responding" -ForegroundColor Green
+        Write-Host "Backend is responding" -ForegroundColor Green
     }
 } catch {
-    Write-Host "⚠ Backend not ready yet, check logs: docker compose logs backend" -ForegroundColor Yellow
+    Write-Host "Backend not ready yet, check logs: docker compose logs backend" -ForegroundColor Yellow
 }
 
 Write-Host ""
